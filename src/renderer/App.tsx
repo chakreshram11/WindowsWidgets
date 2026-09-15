@@ -11,18 +11,26 @@ import { NoteWidget } from './components/widgets/NoteWidget';
 import { SystemMonitorWidget } from './components/widgets/SystemMonitorWidget';
 import { WidgetThemeModal } from './components/theme/WidgetThemeModal';
 import { WidgetThemeSettings, MACOS_THEME_PRESETS } from './types/theme';
-import { WidgetState } from './types/dock';
+import { WidgetState, TaskItem } from './types/dock';
 import { LayoutGrid, Download, Upload, Plus, X, Palette } from 'lucide-react';
+
+const defaultTasks: TaskItem[] = [
+  { id: '1', text: 'CRTA', completed: false },
+  { id: '2', text: 'Security +', completed: false },
+  { id: '3', text: 'ISC2', completed: false }
+];
+
+const defaultNoteText = 'Stay curious. Keep building.';
 
 const defaultWidgets: Record<string, WidgetState> = {
   clock: { id: 'clock', visible: true, x: 30, y: 30 },
   calendar: { id: 'calendar', visible: true, x: 310, y: 30 },
   timer: { id: 'timer', visible: true, x: 610, y: 30 },
   countdown: { id: 'countdown', visible: true, x: 890, y: 30 },
-  tasks: { id: 'tasks', visible: true, x: 30, y: 230 },
+  tasks: { id: 'tasks', visible: true, x: 30, y: 230, tasks: defaultTasks },
   network: { id: 'network', visible: true, x: 610, y: 230 },
   battery: { id: 'battery', visible: true, x: 310, y: 440 },
-  note: { id: 'note', visible: true, x: 610, y: 430 },
+  note: { id: 'note', visible: true, x: 610, y: 430, noteText: defaultNoteText },
   system: { id: 'system', visible: true, x: 30, y: 670 }
 };
 
@@ -173,6 +181,44 @@ export const App: React.FC = () => {
       }
     },
     []
+  );
+
+  const handleTasksChange = useCallback(
+    (tasks: TaskItem[]) => {
+      setWidgets((prev) => {
+        const current = prev.tasks;
+        if (!current) return prev;
+        const updated = {
+          ...prev,
+          tasks: {
+            ...current,
+            tasks
+          }
+        };
+        persistWidgetSettings(theme, updated);
+        return updated;
+      });
+    },
+    [theme, persistWidgetSettings]
+  );
+
+  const handleNoteChange = useCallback(
+    (noteText: string) => {
+      setWidgets((prev) => {
+        const current = prev.note;
+        if (!current) return prev;
+        const updated = {
+          ...prev,
+          note: {
+            ...current,
+            noteText
+          }
+        };
+        persistWidgetSettings(theme, updated);
+        return updated;
+      });
+    },
+    [theme, persistWidgetSettings]
   );
 
   const handleThemeChange = (newTheme: WidgetThemeSettings) => {
@@ -379,7 +425,12 @@ export const App: React.FC = () => {
           style={{ x: widgets.tasks.x, y: widgets.tasks.y }}
           className="absolute z-20 pointer-events-auto cursor-grab active:cursor-grabbing"
         >
-          <TasksWidget theme={theme} onClose={() => toggleWidget('tasks')} />
+          <TasksWidget
+            tasks={widgets.tasks.tasks}
+            onChange={handleTasksChange}
+            theme={theme}
+            onClose={() => toggleWidget('tasks')}
+          />
         </motion.div>
       )}
 
@@ -427,7 +478,12 @@ export const App: React.FC = () => {
           style={{ x: widgets.note.x, y: widgets.note.y }}
           className="absolute z-20 pointer-events-auto cursor-grab active:cursor-grabbing"
         >
-          <NoteWidget theme={theme} onClose={() => toggleWidget('note')} />
+          <NoteWidget
+            noteText={widgets.note.noteText}
+            onTextChange={handleNoteChange}
+            theme={theme}
+            onClose={() => toggleWidget('note')}
+          />
         </motion.div>
       )}
 

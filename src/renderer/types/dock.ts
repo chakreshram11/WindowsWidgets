@@ -2,11 +2,19 @@ import { WidgetThemeSettings } from './theme';
 
 export type DockPosition = 'bottom' | 'left' | 'right';
 
+export interface TaskItem {
+  id: string;
+  text: string;
+  completed: boolean;
+}
+
 export interface WidgetState {
   id: string;
   visible: boolean;
   x: number;
   y: number;
+  tasks?: TaskItem[];
+  noteText?: string;
 }
 
 export type ItemType =

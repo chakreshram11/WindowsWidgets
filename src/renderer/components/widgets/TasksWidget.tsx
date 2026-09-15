@@ -1,24 +1,29 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { X, Plus, Check } from 'lucide-react';
 import { WidgetThemeSettings, getWidgetCardStyle } from '../../types/theme';
-
-interface TaskItem {
-  id: string;
-  text: string;
-  completed: boolean;
-}
+import { TaskItem } from '../../types/dock';
 
 interface TasksWidgetProps {
+  tasks?: TaskItem[];
+  onChange?: (tasks: TaskItem[]) => void;
   theme?: WidgetThemeSettings;
   onClose?: () => void;
 }
 
-export const TasksWidget: React.FC<TasksWidgetProps> = ({ theme, onClose }) => {
-  const [tasks, setTasks] = useState<TaskItem[]>([
-    { id: '1', text: 'CRTA', completed: false },
-    { id: '2', text: 'Security +', completed: false },
-    { id: '3', text: 'ISC2', completed: false }
-  ]);
+const defaultInitialTasks: TaskItem[] = [
+  { id: '1', text: 'CRTA', completed: false },
+  { id: '2', text: 'Security +', completed: false },
+  { id: '3', text: 'ISC2', completed: false }
+];
+
+export const TasksWidget: React.FC<TasksWidgetProps> = ({ tasks: propTasks, onChange, theme, onClose }) => {
+  const [tasks, setTasks] = useState<TaskItem[]>(propTasks || defaultInitialTasks);
+
+  useEffect(() => {
+    if (propTasks) {
+      setTasks(propTasks);
+    }
+  }, [propTasks]);
 
   const [newTaskText, setNewTaskText] = useState('');
 
@@ -29,16 +34,22 @@ export const TasksWidget: React.FC<TasksWidgetProps> = ({ theme, onClose }) => {
       text: newTaskText.trim(),
       completed: false
     };
-    setTasks([...tasks, item]);
+    const updated = [...tasks, item];
+    setTasks(updated);
     setNewTaskText('');
+    onChange?.(updated);
   };
 
   const handleToggleTask = (id: string) => {
-    setTasks(tasks.map((t) => (t.id === id ? { ...t, completed: !t.completed } : t)));
+    const updated = tasks.map((t) => (t.id === id ? { ...t, completed: !t.completed } : t));
+    setTasks(updated);
+    onChange?.(updated);
   };
 
   const handleDeleteTask = (id: string) => {
-    setTasks(tasks.filter((t) => t.id !== id));
+    const updated = tasks.filter((t) => t.id !== id);
+    setTasks(updated);
+    onChange?.(updated);
   };
 
   const textColor = theme?.textColor || '#ffffff';

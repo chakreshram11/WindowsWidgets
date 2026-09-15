@@ -1,20 +1,42 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { X, Edit3 } from 'lucide-react';
 import { WidgetThemeSettings, getWidgetCardStyle } from '../../types/theme';
 
 interface NoteWidgetProps {
-  initialText?: string;
+  noteText?: string;
+  onTextChange?: (text: string) => void;
   theme?: WidgetThemeSettings;
   onClose?: () => void;
 }
 
 export const NoteWidget: React.FC<NoteWidgetProps> = ({
-  initialText = 'Stay curious. Keep building.',
+  noteText = 'Stay curious. Keep building.',
+  onTextChange,
   theme,
   onClose
 }) => {
-  const [text, setText] = useState(initialText);
+  const [text, setText] = useState(noteText);
   const [isEditing, setIsEditing] = useState(false);
+
+  useEffect(() => {
+    if (noteText !== undefined && !isEditing) {
+      setText(noteText);
+    }
+  }, [noteText, isEditing]);
+
+  const handleBlur = () => {
+    setIsEditing(false);
+    onTextChange?.(text);
+  };
+
+  const handleToggleEdit = () => {
+    if (isEditing) {
+      setIsEditing(false);
+      onTextChange?.(text);
+    } else {
+      setIsEditing(true);
+    }
+  };
 
   const textColor = theme?.textColor || '#fef08a';
   const subtextColor = theme?.subtextColor || '#9ca3af';
@@ -30,7 +52,7 @@ export const NoteWidget: React.FC<NoteWidgetProps> = ({
         <span className="text-xs font-semibold" style={{ color: subtextColor }}>Note</span>
         <div className="flex items-center gap-1">
           <button
-            onClick={() => setIsEditing(!isEditing)}
+            onClick={handleToggleEdit}
             className="p-1 rounded-md hover:bg-white/10"
             style={{ color: subtextColor }}
             title="Edit Note"
@@ -50,7 +72,7 @@ export const NoteWidget: React.FC<NoteWidgetProps> = ({
           <textarea
             value={text}
             onChange={(e) => setText(e.target.value)}
-            onBlur={() => setIsEditing(false)}
+            onBlur={handleBlur}
             onPointerDown={(e) => e.stopPropagation()}
             onMouseDown={(e) => e.stopPropagation()}
             rows={3}

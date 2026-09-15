@@ -1,18 +1,26 @@
 import fs from 'fs';
 import path from 'path';
 import { app } from 'electron';
-import { DockSettings, DockProfile, WidgetState } from '../renderer/types/dock';
+import { DockSettings, DockProfile, WidgetState, TaskItem } from '../renderer/types/dock';
 import { MACOS_THEME_PRESETS } from '../renderer/types/theme';
+
+export const defaultTasks: TaskItem[] = [
+  { id: '1', text: 'CRTA', completed: false },
+  { id: '2', text: 'Security +', completed: false },
+  { id: '3', text: 'ISC2', completed: false }
+];
+
+export const defaultNoteText = 'Stay curious. Keep building.';
 
 const defaultWidgets: Record<string, WidgetState> = {
   clock: { id: 'clock', visible: true, x: 30, y: 30 },
   calendar: { id: 'calendar', visible: true, x: 310, y: 30 },
   timer: { id: 'timer', visible: true, x: 610, y: 30 },
   countdown: { id: 'countdown', visible: true, x: 890, y: 30 },
-  tasks: { id: 'tasks', visible: true, x: 30, y: 230 },
+  tasks: { id: 'tasks', visible: true, x: 30, y: 230, tasks: defaultTasks },
   network: { id: 'network', visible: true, x: 610, y: 230 },
   battery: { id: 'battery', visible: true, x: 310, y: 440 },
-  note: { id: 'note', visible: true, x: 610, y: 430 },
+  note: { id: 'note', visible: true, x: 610, y: 430, noteText: defaultNoteText },
   system: { id: 'system', visible: true, x: 30, y: 670 }
 };
 
@@ -133,11 +141,35 @@ export class StoreManager {
       if (fs.existsSync(this.filePath)) {
         const raw = fs.readFileSync(this.filePath, 'utf-8');
         const parsed = JSON.parse(raw);
+
+        const mergedWidgets: Record<string, WidgetState> = {};
+        const savedWidgets = parsed.widgets || {};
+
+        for (const [key, defaultWidget] of Object.entries(defaultWidgets)) {
+          const savedWidget = savedWidgets[key];
+          if (savedWidget) {
+            mergedWidgets[key] = {
+              ...defaultWidget,
+              ...savedWidget,
+              tasks: savedWidget.tasks !== undefined ? savedWidget.tasks : defaultWidget.tasks,
+              noteText: savedWidget.noteText !== undefined ? savedWidget.noteText : defaultWidget.noteText
+            };
+          } else {
+            mergedWidgets[key] = { ...defaultWidget };
+          }
+        }
+
+        for (const [key, savedWidget] of Object.entries(savedWidgets)) {
+          if (!mergedWidgets[key]) {
+            mergedWidgets[key] = savedWidget as WidgetState;
+          }
+        }
+
         return {
           ...defaultSettings,
           ...parsed,
           theme: parsed.theme ? { ...defaultSettings.theme, ...parsed.theme } : defaultSettings.theme,
-          widgets: parsed.widgets ? { ...defaultSettings.widgets, ...parsed.widgets } : defaultSettings.widgets
+          widgets: mergedWidgets
         };
       }
     } catch (err) {
