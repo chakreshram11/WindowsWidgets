@@ -47,6 +47,10 @@ export const TasksWidget: React.FC<TasksWidgetProps> = ({ theme, onClose }) => {
 
   const cardStyle = getWidgetCardStyle(theme);
 
+  const uncompletedTasks = tasks.filter((t) => !t.completed);
+  const completedTasks = tasks.filter((t) => t.completed);
+  const sortedTasks = [...uncompletedTasks, ...completedTasks];
+
   return (
     <div
       style={cardStyle}
@@ -86,11 +90,13 @@ export const TasksWidget: React.FC<TasksWidgetProps> = ({ theme, onClose }) => {
       </div>
 
       {/* Task items list */}
-      <div className="flex flex-col gap-2 max-h-48 overflow-y-auto pr-0.5">
-        {tasks.map((task) => (
+      <div className="flex flex-col gap-2">
+        {sortedTasks.map((task) => (
           <div
             key={task.id}
             onClick={() => handleToggleTask(task.id)}
+            onPointerDown={(e) => e.stopPropagation()}
+            onMouseDown={(e) => e.stopPropagation()}
             className="flex items-center justify-between p-2 bg-white/5 hover:bg-white/10 rounded-xl border border-white/5 cursor-pointer group transition-all"
           >
             <div className="flex items-center gap-2">
