@@ -1,6 +1,12 @@
 import { contextBridge, ipcRenderer } from 'electron';
 import { DockSettings, DockProfile, RunningAppInfo, RecycleBinStatus, FolderItemEntry } from '../renderer/types/dock';
-import { SystemMetrics, BatteryMetrics, NetworkMetrics } from './win32/systemSensors';
+import {
+  SystemMetrics,
+  BatteryMetrics,
+  NetworkMetrics,
+  MemoryStats,
+  MemoryCleanupResult
+} from './win32/systemSensors';
 
 const dockApi = {
   getSettings: (): Promise<DockSettings> => ipcRenderer.invoke('dock:get-settings'),
@@ -20,6 +26,8 @@ const dockApi = {
   extractIcon: (filePath: string): Promise<string | null> => ipcRenderer.invoke('dock:extract-icon', filePath),
 
   getSystemMetrics: (): Promise<SystemMetrics> => ipcRenderer.invoke('dock:get-system-metrics'),
+  getMemoryStats: (): Promise<MemoryStats> => ipcRenderer.invoke('memory:get-stats'),
+  cleanMemory: (): Promise<MemoryCleanupResult> => ipcRenderer.invoke('memory:clean'),
   getBatteryMetrics: (): Promise<BatteryMetrics> => ipcRenderer.invoke('dock:get-battery-metrics'),
   getNetworkMetrics: (): Promise<NetworkMetrics> => ipcRenderer.invoke('dock:get-network-metrics'),
 

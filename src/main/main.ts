@@ -4,7 +4,13 @@ import fs from 'fs';
 import { store } from './store';
 import { showWindowsTaskbar } from './win32/taskbar';
 import { pinWindowToDesktop } from './win32/desktopPin';
-import { getSystemMetrics, getBatteryMetrics, getNetworkMetrics } from './win32/systemSensors';
+import {
+  getSystemMetrics,
+  getMemoryStats,
+  cleanMemory,
+  getBatteryMetrics,
+  getNetworkMetrics
+} from './win32/systemSensors';
 import { DockSettings } from '../renderer/types/dock';
 
 let mainWindow: BrowserWindow | null = null;
@@ -150,6 +156,14 @@ ipcMain.handle('dock:save-settings', (_, settings: DockSettings) => {
 
 ipcMain.handle('dock:get-system-metrics', async () => {
   return await getSystemMetrics();
+});
+
+ipcMain.handle('memory:get-stats', () => {
+  return getMemoryStats();
+});
+
+ipcMain.handle('memory:clean', async () => {
+  return await cleanMemory();
 });
 
 ipcMain.handle('dock:get-battery-metrics', async () => {

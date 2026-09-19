@@ -8,6 +8,22 @@ export interface SystemMetrics {
   disk: number;
 }
 
+export interface MemoryStats {
+  totalBytes: number;
+  usedBytes: number;
+  availableBytes: number;
+  usagePercent: number;
+}
+
+export interface MemoryCleanupResult {
+  success: boolean;
+  before: MemoryStats;
+  after: MemoryStats;
+  reclaimedBytes: number;
+  processesTrimmed: number;
+  error?: string;
+}
+
 export interface BatteryMetrics {
   percentage: number;
   isCharging: boolean;
@@ -58,11 +74,29 @@ function getCpuUsage(): number {
  * Calculates RAM usage percentage using Node's os.totalmem() & os.freemem().
  */
 function getRamUsage(): number {
-  const total = os.totalmem();
-  const free = os.freemem();
-  if (!total) return 50;
-  const usedRatio = ((total - free) / total) * 100;
-  return Number(usedRatio.toFixed(1));
+  const memory = getMemoryStats();
+  return memory.totalBytes > 0 ? memory.usagePercent : 50;
+}
+
+/**
+ * Reads physical memory totals from Windows/Node's operating-system memory
+ * counters. These are real values; cached and standby lists are intentionally
+ * not reported because this implementation does not query them reliably.
+ */
+export function getMemoryStats(): MemoryStats {
+  const totalBytes = os.totalmem();
+  const availableBytes = Math.min(totalBytes, Math.max(0, os.freemem()));
+  const usedBytes = Math.max(0, totalBytes - availableBytes);
+  const usagePercent = totalBytes > 0
+    ? Number(((usedBytes / totalBytes) * 100).toFixed(1))
+    : 0;
+
+  return {
+    totalBytes,
+    usedBytes,
+    availableBytes,
+    usagePercent
+  };
 }
 
 /**
@@ -93,6 +127,104 @@ export async function getSystemMetrics(): Promise<SystemMetrics> {
     cpu: getCpuUsage(),
     ram: getRamUsage(),
     disk: getDiskUsage()
+  };
+}
+
+// EmptyWorkingSet is a documented Windows API that trims reclaimable pages
+// from a process working set. It does not terminate processes or close apps.
+let EnumProcesses: any = null;
+let OpenProcess: any = null;
+let EmptyWorkingSet: any = null;
+let CloseHandle: any = null;
+
+try {
+  const psapi = koffi.load('psapi.dll');
+  const kernel32ForMemory = koffi.load('kernel32.dll');
+
+  EnumProcesses = psapi.func('bool EnumProcesses(_Out_ uint32 *lpidProcess, uint32 cb, _Out_ uint32 *lpcbNeeded)');
+  EmptyWorkingSet = psapi.func('bool EmptyWorkingSet(uintptr_t hProcess)');
+  OpenProcess = kernel32ForMemory.func('uintptr_t OpenProcess(uint32 dwDesiredAccess, bool bInheritHandle, uint32 dwProcessId)');
+  CloseHandle = kernel32ForMemory.func('bool CloseHandle(uintptr_t hObject)');
+} catch (err) {
+  console.error('Failed to load Win32 memory cleanup bindings:', err);
+}
+
+/**
+ * Trims accessible process working sets using EmptyWorkingSet. Access-denied
+ * processes are skipped by Windows; no process is terminated or modified.
+ */
+export async function cleanMemory(): Promise<MemoryCleanupResult> {
+  const before = getMemoryStats();
+  let processesTrimmed = 0;
+
+  if (!EnumProcesses || !OpenProcess || !EmptyWorkingSet || !CloseHandle) {
+    return {
+      success: false,
+      before,
+      after: before,
+      reclaimedBytes: 0,
+      processesTrimmed,
+      error: 'Windows memory cleanup is unavailable.'
+    };
+  }
+
+  try {
+    const processIds = new Uint32Array(4096);
+    const bytesNeeded = [0];
+    const enumerated = EnumProcesses(processIds, processIds.byteLength, bytesNeeded);
+
+    if (!enumerated) {
+      throw new Error('EnumProcesses failed');
+    }
+
+    const processCount = Math.min(
+      processIds.length,
+      Math.floor(Number(bytesNeeded[0]) / Uint32Array.BYTES_PER_ELEMENT)
+    );
+
+    // PROCESS_QUERY_INFORMATION | PROCESS_SET_QUOTA. These rights are the
+    // documented minimum required by EmptyWorkingSet.
+    const processAccess = 0x0400 | 0x0100;
+    for (let index = 0; index < processCount; index += 1) {
+      const processId = processIds[index];
+      if (!processId) continue;
+
+      const processHandle = OpenProcess(processAccess, false, processId);
+      if (!processHandle) continue;
+
+      try {
+        if (EmptyWorkingSet(processHandle)) {
+          processesTrimmed += 1;
+        }
+      } finally {
+        CloseHandle(processHandle);
+      }
+    }
+  } catch (err) {
+    console.error('Windows memory cleanup failed:', err);
+    return {
+      success: false,
+      before,
+      after: getMemoryStats(),
+      reclaimedBytes: 0,
+      processesTrimmed,
+      error: 'Memory cleanup failed. Try again.'
+    };
+  }
+
+  // Give Windows a moment to account for pages trimmed back to the standby
+  // list before taking the comparison reading.
+  await new Promise<void>((resolve) => setTimeout(resolve, 150));
+  const after = getMemoryStats();
+  const reclaimedBytes = Math.max(0, after.availableBytes - before.availableBytes);
+
+  return {
+    success: processesTrimmed > 0,
+    before,
+    after,
+    reclaimedBytes,
+    processesTrimmed,
+    error: processesTrimmed > 0 ? undefined : 'No accessible process working sets could be trimmed.'
   };
 }
 

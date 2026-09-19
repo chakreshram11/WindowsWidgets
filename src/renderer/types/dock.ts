@@ -15,6 +15,8 @@ export interface WidgetState {
   y: number;
   tasks?: TaskItem[];
   noteText?: string;
+  lastCleanupAt?: string;
+  lastFreedBytes?: number;
 }
 
 export type ItemType =

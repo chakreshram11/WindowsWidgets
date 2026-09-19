@@ -21,7 +21,8 @@ const defaultWidgets: Record<string, WidgetState> = {
   network: { id: 'network', visible: true, x: 610, y: 230 },
   battery: { id: 'battery', visible: true, x: 310, y: 440 },
   note: { id: 'note', visible: true, x: 610, y: 430, noteText: defaultNoteText },
-  system: { id: 'system', visible: true, x: 30, y: 670 }
+  system: { id: 'system', visible: true, x: 30, y: 670 },
+  memory: { id: 'memory', visible: true, x: 890, y: 230 }
 };
 
 const defaultProfile: DockProfile = {

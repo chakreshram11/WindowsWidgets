@@ -9,9 +9,11 @@ import { NetworkWidget } from './components/widgets/NetworkWidget';
 import { BatteryWidget } from './components/widgets/BatteryWidget';
 import { NoteWidget } from './components/widgets/NoteWidget';
 import { SystemMonitorWidget } from './components/widgets/SystemMonitorWidget';
+import { MemoryCleanerWidget } from './components/widgets/MemoryCleanerWidget';
 import { WidgetThemeModal } from './components/theme/WidgetThemeModal';
 import { WidgetThemeSettings, MACOS_THEME_PRESETS } from './types/theme';
 import { WidgetState, TaskItem } from './types/dock';
+import { MemoryCleanupResult } from '../main/win32/systemSensors';
 import { LayoutGrid, Download, Upload, Plus, X, Palette } from 'lucide-react';
 
 const defaultTasks: TaskItem[] = [
@@ -31,7 +33,8 @@ const defaultWidgets: Record<string, WidgetState> = {
   network: { id: 'network', visible: true, x: 610, y: 230 },
   battery: { id: 'battery', visible: true, x: 310, y: 440 },
   note: { id: 'note', visible: true, x: 610, y: 430, noteText: defaultNoteText },
-  system: { id: 'system', visible: true, x: 30, y: 670 }
+  system: { id: 'system', visible: true, x: 30, y: 670 },
+  memory: { id: 'memory', visible: true, x: 890, y: 230 }
 };
 
 export const App: React.FC = () => {
@@ -212,6 +215,26 @@ export const App: React.FC = () => {
           note: {
             ...current,
             noteText
+          }
+        };
+        persistWidgetSettings(theme, updated);
+        return updated;
+      });
+    },
+    [theme, persistWidgetSettings]
+  );
+
+  const handleMemoryCleanup = useCallback(
+    (result: MemoryCleanupResult, cleanupAt: string) => {
+      setWidgets((prev) => {
+        const current = prev.memory;
+        if (!current) return prev;
+        const updated = {
+          ...prev,
+          memory: {
+            ...current,
+            lastCleanupAt: cleanupAt,
+            lastFreedBytes: result.reclaimedBytes
           }
         };
         persistWidgetSettings(theme, updated);
@@ -500,6 +523,28 @@ export const App: React.FC = () => {
           className="absolute z-20 pointer-events-auto cursor-grab active:cursor-grabbing"
         >
           <SystemMonitorWidget theme={theme} onClose={() => toggleWidget('system')} />
+        </motion.div>
+      )}
+
+      {/* Memory Cleaner Widget */}
+      {widgets.memory.visible && (
+        <motion.div
+          drag
+          dragMomentum={false}
+          onDragStart={handleDragStart}
+          onDragEnd={(_, info) => handleDragEnd('memory', info)}
+          onMouseEnter={handleMouseEnterWidget}
+          onMouseLeave={handleMouseLeaveWidget}
+          style={{ x: widgets.memory.x, y: widgets.memory.y }}
+          className="absolute z-20 pointer-events-auto cursor-grab active:cursor-grabbing"
+        >
+          <MemoryCleanerWidget
+            theme={theme}
+            lastCleanupAt={widgets.memory.lastCleanupAt}
+            lastFreedBytes={widgets.memory.lastFreedBytes}
+            onCleanupComplete={handleMemoryCleanup}
+            onClose={() => toggleWidget('memory')}
+          />
         </motion.div>
       )}
 
